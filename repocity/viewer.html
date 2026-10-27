@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1120;
+    font-family: system-ui, -apple-system, sans-serif; color: #e2e8f0; }
+  #app { position: fixed; inset: 0; }
+  #hud { position: fixed; top: 16px; left: 16px; z-index: 10; max-width: 340px;
+    background: rgba(15, 23, 42, 0.85); border: 1px solid #334155; border-radius: 12px;
+    padding: 14px 16px; backdrop-filter: blur(6px); }
+  #hud h1 { font-size: 18px; margin: 0 0 4px; }
+  #hud p { font-size: 13px; color: #94a3b8; margin: 4px 0; }
+  #hud input { width: 100%; box-sizing: border-box; margin-top: 8px; padding: 8px;
+    border-radius: 8px; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; }
+  #legend { font-size: 12px; margin-top: 10px; line-height: 1.7; }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+    margin-right: 6px; vertical-align: middle; }
+  #tooltip { position: fixed; z-index: 20; pointer-events: none; display: none;
+    background: rgba(15, 23, 42, 0.95); border: 1px solid #475569; border-radius: 8px;
+    padding: 10px 12px; font-size: 13px; max-width: 320px; }
+  #tooltip b { color: #fff; }
+  #tooltip .meta { color: #94a3b8; }
+  #hint { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+    font-size: 12px; color: #64748b; z-index: 10; }
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="app"></div>
+<div id="hud">
+  <h1 id="title">__TITLE__</h1>
+  <p id="stats"></p>
+  <input id="search" placeholder="Search a file path… (Enter to fly to it)">
+  <div id="legend">
+    <div><span class="swatch" style="background:#FFB020"></span>changed in the last week</div>
+    <div><span class="swatch" style="background:#FF7A1A"></span>changed in the last month</div>
+    <div><span class="swatch" style="background:#2EC4B6"></span>changed in the last 3 months</div>
+    <div><span class="swatch" style="background:#3B82F6"></span>changed in the last year</div>
+    <div><span class="swatch" style="background:#64748B"></span>untouched for over a year</div>
+    <p>Height = lines of code (log scale). Hover any building for details.</p>
+  </div>
+</div>
+<div id="tooltip"></div>
+<div id="hint">drag to orbit &bull; scroll to zoom &bull; right-drag to pan</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const CITY = __CITY_DATA__;
+
+document.getElementById('stats').textContent =
+  `${CITY.repo.files.toLocaleString()} files · ${CITY.repo.lines.toLocaleString()} lines · ${CITY.repo.districts} districts`;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b1120);
+scene.fog = new THREE.Fog(0x0b1120, 200, 600);
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 2000);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.getElementById('app').appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+const groundMat = new THREE.MeshLambertMaterial({ color: 0x1e293b });
+const meshes = [];
+const meshByPath = new Map();
+let maxX = 0, maxZ = 0;
+
+// District ground plates + floating labels.
+function makeLabel(text) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.font = '600 42px system-ui, sans-serif';
+  const w = Math.ceil(ctx.measureText(text).width) + 40;
+  canvas.width = w; canvas.height = 64;
+  const c2 = canvas.getContext('2d');
+  c2.font = '600 42px system-ui, sans-serif';
+  c2.fillStyle = '#e2e8f0'; c2.fillText(text, 20, 44);
+  const tex = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  sprite.scale.set(w / 12, 64 / 12, 1);
+  return sprite;
+}
+for (const d of CITY.districts) {
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(d.width + 4, 0.4, d.depth + 4), groundMat);
+  plate.position.set(d.x + d.width / 2, -0.2, d.depth / 2);
+  scene.add(plate);
+  const label = makeLabel(d.name);
+  label.position.set(d.x + d.width / 2, 26, d.depth / 2);
+  scene.add(label);
+  maxX = Math.max(maxX, d.x + d.width);
+  maxZ = Math.max(maxZ, d.depth);
+}
+
+// Buildings.
+for (const b of CITY.buildings) {
+  const geo = new THREE.BoxGeometry(b.w, b.h, b.d);
+  const mat = new THREE.MeshLambertMaterial({ color: new THREE.Color(b.color) });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(b.x + b.w / 2, b.h / 2, b.z + b.d / 2);
+  mesh.userData.building = b;
+  scene.add(mesh);
+  meshes.push(mesh);
+  meshByPath.set(b.path, mesh);
+}
+
+// Lights + camera.
+scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+sun.position.set(maxX / 2, 120, -80);
+scene.add(sun);
+camera.position.set(maxX / 2, Math.max(maxX, maxZ) * 0.7, maxZ + 90);
+controls.target.set(maxX / 2, 0, maxZ / 2);
+controls.update();
+
+// Hover tooltip + highlight.
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const tooltip = document.getElementById('tooltip');
+let hovered = null;
+function setHover(mesh) {
+  if (hovered === mesh) return;
+  if (hovered) hovered.material.emissive.setHex(0x000000);
+  hovered = mesh;
+  if (hovered) hovered.material.emissive.setHex(0x334155);
+}
+addEventListener('mousemove', (e) => {
+  mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(mouse, camera);
+  const hit = raycaster.intersectObjects(meshes, false)[0];
+  if (hit) {
+    setHover(hit.object);
+    const b = hit.object.userData.building;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX + 16) + 'px';
+    tooltip.style.top = (e.clientY + 16) + 'px';
+    tooltip.innerHTML = `<b>${b.path}</b><br><span class="meta">${b.district} district<br>` +
+      `${b.lines.toLocaleString()} lines · ${b.commits} commits<br>` +
+      `last change: ${b.last_commit || 'unknown'} · ${b.recency}</span>`;
+  } else {
+    setHover(null);
+    tooltip.style.display = 'none';
+  }
+});
+
+// Search: Enter flies the camera to the first matching building.
+document.getElementById('search').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) return;
+  const match = CITY.buildings.find(b => b.path.toLowerCase().includes(q));
+  if (!match) return;
+  const mesh = meshByPath.get(match.path);
+  setHover(mesh);
+  controls.target.set(mesh.position.x, mesh.position.y, mesh.position.z);
+  camera.position.set(mesh.position.x + 18, mesh.position.y + 22, mesh.position.z + 18);
+  controls.update();
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+</script>
+</body>
+</html>

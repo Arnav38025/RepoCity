@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repocity"
+version = "0.1.0"
+description = "Turn any codebase into an explorable 3D city. No API keys, no accounts."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Arnav Saharan" }]
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: Visualization",
+    "Environment :: Console",
+]
+
+[project.scripts]
+repocity = "repocity.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["repocity*"]
+
+[tool.setuptools.package-data]
+repocity = ["viewer.html"]
