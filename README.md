@@ -15,11 +15,14 @@ spot the parts of the code that are huge, old, or changing fast.
 | City element | Code element |
 |---|---|
 | Building | One source file |
-| Building height | Lines of code (log scale) |
-| Building footprint | Lines of code (square-root scale) |
+| Building height | Lines of code (square-root scale — small files stay low, the biggest files become towers) |
+| Building footprint | Lines of code (log scale) |
 | Building color | Recency — warm = changed recently, cool = untouched for a long time |
+| Lit windows | Recently changed files glow; older files stay dark |
+| Rooftop beacon | The tallest 5% of buildings get an antenna and a red beacon |
+| Street grid | A ground grid ties the districts together |
 | District (ground plate) | Top-level folder |
-| District label | Folder name, floating over the district |
+| District label | Folder name, floating above the tallest tower |
 
 ## No keys, no accounts, no network (for analysis)
 
@@ -62,6 +65,7 @@ repocity PATH [options]
   -o, --output FILE     Output file (default: city.html, or city.json with --json)
   --json                Emit raw city data as JSON instead of the HTML viewer
   --max-files N         Only include the N largest files (default: 2000)
+  --height-scale MODE   How height maps to lines: sqrt (default, dramatic skyline), log, or linear
   --include-hidden      Include dotfiles and dot-directories (skipped by default)
   --no-git              Ignore git history; use file modification times for recency
   --exclude GLOB        Skip paths matching GLOB (repeatable)

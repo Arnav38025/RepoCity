@@ -24,7 +24,7 @@ RECENCY_BUCKETS = [
 ]
 
 FOOTPRINT_MIN, FOOTPRINT_MAX = 1.0, 6.0
-HEIGHT_MIN, HEIGHT_MAX = 0.6, 18.0
+HEIGHT_MIN, HEIGHT_MAX = 1.0, 42.0  # tall enough for a real skyline
 GAP = 1.2  # street width between buildings
 
 
@@ -34,6 +34,25 @@ def _scale(value: int, lo: int, hi: int, out_lo: float, out_hi: float) -> float:
         return out_lo
     frac = math.log1p(value - lo) / math.log1p(hi - lo)
     return out_lo + frac * (out_hi - out_lo)
+
+
+def _height_scale(value: int, max_value: int, mode: str) -> float:
+    """Map lines of code to building height.
+
+    sqrt (the default) spreads the skyline out: small files stay low and
+    the biggest files become unmistakable towers, instead of everything
+    clustering in the middle the way a log scale does. log keeps the old
+    compressed look; linear makes height directly proportional to lines.
+    """
+    if max_value <= 1:
+        return HEIGHT_MIN
+    if mode == "sqrt":
+        frac = math.sqrt(value) / math.sqrt(max_value)
+    elif mode == "linear":
+        frac = value / max_value
+    else:  # "log"
+        frac = math.log1p(value - 1) / math.log1p(max_value - 1)
+    return HEIGHT_MIN + frac * (HEIGHT_MAX - HEIGHT_MIN)
 
 
 def _color_for(days: int | None) -> int:
@@ -54,7 +73,7 @@ def _label_for(days: int | None) -> str:
     return RECENCY_BUCKETS[-1][2]
 
 
-def build_city(stats: list[FileStat]) -> dict:
+def build_city(stats: list[FileStat], height_scale: str = "sqrt") -> dict:
     """Build the city data structure from analyzed file stats."""
     if not stats:
         return {"repo": {}, "districts": [], "buildings": []}
@@ -85,8 +104,7 @@ def build_city(stats: list[FileStat]) -> dict:
             col, row = i % cols, i // cols
             footprint = _scale(stat.lines, 1, max_lines,
                                FOOTPRINT_MIN, FOOTPRINT_MAX)
-            height = _scale(stat.lines, 1, max_lines,
-                            HEIGHT_MIN, HEIGHT_MAX)
+            height = _height_scale(stat.lines, max_lines, height_scale)
             days = recency_days(stat)
             buildings.append({
                 "path": stat.path, "district": name,
@@ -99,11 +117,21 @@ def build_city(stats: list[FileStat]) -> dict:
                 "recency": _label_for(days),
             })
         cursor_x += width + 8.0  # avenue between districts
+    tallest = max(stats, key=lambda s: s.lines)
+    dated = [s for s in stats if recency_days(s) is not None]
+    most_recent = min(dated, key=recency_days) if dated else None
     return {
         "repo": {
             "files": len(stats),
             "lines": sum(s.lines for s in stats),
             "districts": len(district_meta),
+            "avg_lines": round(sum(s.lines for s in stats) / len(stats), 1),
+            "tallest": {"path": tallest.path, "lines": tallest.lines},
+            "most_recent": (
+                {"path": most_recent.path,
+                 "last_commit": most_recent.last_commit}
+                if most_recent else None
+            ),
         },
         "districts": district_meta,
         "buildings": buildings,
