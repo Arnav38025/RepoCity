@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from . import __version__
 from .analyze import analyze
 from .render import build_city, render_html, render_json
 
@@ -15,6 +16,9 @@ def main(argv: list[str] | None = None) -> int:
         description="Turn a codebase into an explorable 3D city. "
                     "No API keys, no accounts -- reads a local checkout.",
     )
+    parser.add_argument("--version", action="version",
+                        version=f"%(prog)s {__version__}",
+                        help="Show the repocity version and exit")
     parser.add_argument("path", help="Path to a local repository checkout")
     parser.add_argument("-o", "--output", default=None,
                         help="Output file (default: city.html, or city.json with --json)")

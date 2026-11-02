@@ -40,8 +40,8 @@ Requires Python 3.9+ and git. No third-party dependencies.
 ```bash
 pip install repocity
 # or, from source:
-git clone https://github.com/Arnav38025/repocity.git
-cd repocity
+git clone https://github.com/Arnav38025/RepoCity.git
+cd RepoCity
 pip install -e .
 ```
 
@@ -58,6 +58,15 @@ repocity /path/to/your-repo -o city.html
 repocity /path/to/your-repo --json -o city.json
 ```
 
+### Example output
+
+Running it on this repo itself:
+
+```console
+$ repocity . -o city.html
+repocity: 11 files, 803 lines, 3 districts -> city.html
+```
+
 ### Options
 
 ```
@@ -69,6 +78,7 @@ repocity PATH [options]
   --include-hidden      Include dotfiles and dot-directories (skipped by default)
   --no-git              Ignore git history; use file modification times for recency
   --exclude GLOB        Skip paths matching GLOB (repeatable)
+  --version             Show the repocity version and exit
 ```
 
 ## What it skips
