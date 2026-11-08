@@ -32,7 +32,7 @@ def _scale(value: int, lo: int, hi: int, out_lo: float, out_hi: float) -> float:
     """Log scale so one giant file doesn't flatten the whole skyline."""
     if hi <= lo:
         return out_lo
-    frac = math.log1p(value - lo) / math.log1p(hi - lo)
+    frac = math.log1p(max(0, value - lo)) / math.log1p(hi - lo)
     return out_lo + frac * (out_hi - out_lo)
 
 
