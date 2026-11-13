@@ -33,8 +33,9 @@
   #loader { position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 18px; background: #0b1120;
     transition: opacity 0.7s ease; }
-  #loader.done { opacity: 0; pointer-events: none; }
-  #loader .wordmark { font-size: 30px; font-weight: 700; letter-spacing: 0.14em;
+  #loader.done { opacity: 0; pointer-events: none; visibility: hidden;
+    transition: opacity 0.7s ease, visibility 0s linear 0.7s; }
+  #loader .wordmark { font-size: clamp(22px, 6vw, 30px); font-weight: 700; letter-spacing: 0.14em;
     text-transform: uppercase;
     background: linear-gradient(100deg, #e0f2fe, #818cf8 55%, #c084fc);
     -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -60,9 +61,11 @@
     transition: transform 0.35s ease, background 0.2s ease; }
   #collapseBtn:hover { background: rgba(148, 163, 184, 0.2); color: var(--ink); }
   #hud.collapsed #collapseBtn { transform: rotate(-90deg); }
-  #hudBody { max-height: 72vh; opacity: 1; overflow: hidden;
-    transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.4s ease; margin-top: 10px; }
-  #hud.collapsed #hudBody { max-height: 0; opacity: 0; margin-top: 0; }
+  #hudBody { max-height: 72vh; opacity: 1; overflow: hidden; visibility: visible;
+    transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.4s ease, visibility 0s;
+    margin-top: 10px; }
+  #hud.collapsed #hudBody { max-height: 0; opacity: 0; margin-top: 0; visibility: hidden;
+    transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.4s ease, visibility 0s linear 0.4s; }
 
   .chips { display: flex; gap: 8px; flex-wrap: wrap; }
   .chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 11px;
@@ -93,6 +96,8 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sugg .n { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); flex: none; }
   .sugg.active, .sugg:hover { background: rgba(125, 211, 252, 0.14); }
+  .sugg.empty { cursor: default; color: var(--ink-faint); font-size: 12px; }
+  .sugg.empty:hover { background: none; }
 
   /* ---------- Legend + About ---------- */
   #legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
@@ -127,9 +132,10 @@
   /* ---------- Detail card (bottom-left) ---------- */
   #card { position: fixed; left: 16px; bottom: 52px; z-index: 11; width: 330px;
     max-width: calc(100vw - 32px); padding: 16px 18px 14px;
-    opacity: 0; transform: translateY(14px); pointer-events: none;
-    transition: opacity 0.3s ease, transform 0.3s ease; }
-  #card.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    opacity: 0; transform: translateY(14px); pointer-events: none; visibility: hidden;
+    transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0.3s; }
+  #card.show { opacity: 1; transform: translateY(0); pointer-events: auto; visibility: visible;
+    transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s; }
   #cardClose { position: absolute; top: 10px; right: 10px; width: 24px; height: 24px;
     border-radius: 8px; border: 1px solid var(--glass-border); cursor: pointer;
     background: rgba(148, 163, 184, 0.08); color: var(--ink-dim); font-size: 14px; line-height: 1; }
@@ -159,7 +165,15 @@
   #hint kbd { font-family: var(--mono); font-size: 10.5px; color: var(--ink);
     background: rgba(148, 163, 184, 0.14); border: 1px solid var(--glass-border);
     border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; margin-right: 5px; }
-  @media (max-width: 760px) { #hint { display: none; } #controlsBar { top: auto; bottom: 14px; } }
+  button:focus-visible, #search:focus-visible { outline: 2px solid rgba(125, 211, 252, 0.7);
+    outline-offset: 2px; }
+  @media (max-width: 760px) {
+    #hint { display: none; }
+    #hud { top: 8px; left: 8px; right: 8px; width: auto; max-width: none; }
+    #controlsBar { top: auto; bottom: 10px; left: 8px; right: 8px;
+      justify-content: center; max-width: none; }
+    #card { left: 8px; right: 8px; width: auto; max-width: none; bottom: 76px; }
+  }
 </style>
 <script type="importmap">
 { "imports": {
@@ -181,17 +195,19 @@
 <div id="hud" class="glass">
   <div id="hudHead">
     <h1 id="title">__TITLE__</h1>
-    <button id="collapseBtn" title="Collapse panel" aria-label="Collapse panel">&#9662;</button>
+    <button id="collapseBtn" title="Collapse panel" aria-label="Collapse panel" aria-expanded="true" aria-controls="hudBody">&#9662;</button>
   </div>
   <div id="hudBody">
     <div class="chips" id="chips"></div>
     <div id="superlatives"></div>
     <div id="searchWrap">
-      <input id="search" placeholder="Search a file path..." autocomplete="off" spellcheck="false">
-      <div id="suggestions"></div>
+      <input id="search" placeholder="Search a file path..." autocomplete="off" spellcheck="false"
+        aria-label="Search a file path" role="combobox" aria-expanded="false"
+        aria-controls="suggestions" aria-autocomplete="list">
+      <div id="suggestions" role="listbox"></div>
     </div>
     <div id="legend"></div>
-    <button id="aboutBtn">About <span class="chev">&#9662;</span></button>
+    <button id="aboutBtn" aria-expanded="false" aria-controls="about">About <span class="chev">&#9662;</span></button>
     <div id="about">
       <p>Height = lines of code (square-root scale, so the skyline has real towers).
         Lit windows = recently changed files. Pulsing red beacons mark the tallest 5% of buildings.</p>
@@ -200,15 +216,15 @@
 </div>
 
 <div id="controlsBar" class="glass">
-  <div class="seg" id="modeSeg">
-    <button data-mode="day">Day</button>
-    <button data-mode="dusk">Dusk</button>
-    <button data-mode="night" class="on">Night</button>
+  <div class="seg" id="modeSeg" role="group" aria-label="Scene mode">
+    <button data-mode="day" aria-pressed="false">Day</button>
+    <button data-mode="dusk" aria-pressed="false">Dusk</button>
+    <button data-mode="night" class="on" aria-pressed="true">Night</button>
   </div>
   <div class="vsep"></div>
-  <button id="btnOrbit" class="pill">Auto-orbit</button>
-  <button id="btnLabels" class="pill on">Labels</button>
-  <button id="btnWindows" class="pill on">Windows</button>
+  <button id="btnOrbit" class="pill" aria-pressed="false">Auto-orbit</button>
+  <button id="btnLabels" class="pill on" aria-pressed="true">Labels</button>
+  <button id="btnWindows" class="pill on" aria-pressed="true">Windows</button>
 </div>
 
 <aside id="card" class="glass">
@@ -233,13 +249,30 @@
   <span><kbd>esc</kbd>unpin</span>
 </div>
 
+<script>
+  // Failsafe: if the module below never runs (CDN unreachable, no WebGL),
+  // don't leave the loading screen spinning forever with no explanation.
+  window.__loaderWatchdog = setTimeout(() => {
+    const loader = document.getElementById('loader');
+    if (loader && !loader.classList.contains('done')) {
+      const sub = loader.querySelector('.sub');
+      if (sub) sub.textContent = 'Still loading — if this persists, the 3D library failed to load. Check your connection and reload.';
+    }
+  }, 9000);
+</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const CITY = __CITY_DATA__;
 const repo = CITY.repo || {};
+const buildings = Array.isArray(CITY.buildings) ? CITY.buildings : [];
+const districts = Array.isArray(CITY.districts) ? CITY.districts : [];
 const fmt = (n) => (n || 0).toLocaleString();
+// File paths come from the scanned repo and can contain <, >, & or quotes;
+// anything rendered through innerHTML must go through this first.
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // --- HUD text -------------------------------------------------------------
 document.getElementById('chips').innerHTML =
@@ -249,9 +282,9 @@ document.getElementById('chips').innerHTML =
 {
   const rows = [];
   if (repo.tallest) rows.push(
-    `<div><span class="lbl">Tallest</span><span class="mono">${repo.tallest.path}</span> (${fmt(repo.tallest.lines)} lines)</div>`);
+    `<div><span class="lbl">Tallest</span><span class="mono">${esc(repo.tallest.path)}</span> (${fmt(repo.tallest.lines)} lines)</div>`);
   if (repo.most_recent) rows.push(
-    `<div><span class="lbl">Freshest</span><span class="mono">${repo.most_recent.path}</span></div>`);
+    `<div><span class="lbl">Freshest</span><span class="mono">${esc(repo.most_recent.path)}</span></div>`);
   document.getElementById('superlatives').innerHTML = rows.join('');
 }
 const LEGEND = [
@@ -295,8 +328,9 @@ function makeLabel(text) {
   sprite.scale.set(w / 12, 64 / 12, 1);
   return sprite;
 }
-const maxH = Math.max(0, ...CITY.buildings.map(b => b.h));
-for (const d of CITY.districts) {
+let maxH = 0;
+for (const b of buildings) maxH = Math.max(maxH, b.h || 0);
+for (const d of districts) {
   const plate = new THREE.Mesh(new THREE.BoxGeometry(d.width + 4, 0.4, d.depth + 4), groundMat);
   plate.position.set(d.x + d.width / 2, -0.2, d.depth / 2);
   scene.add(plate);
@@ -318,7 +352,7 @@ let grid = buildGrid(0x334155, 0x1e293b);
 scene.add(grid);
 
 // Buildings.
-for (const b of CITY.buildings) {
+for (const b of buildings) {
   const geo = new THREE.BoxGeometry(b.w, b.h, b.d);
   const mat = new THREE.MeshLambertMaterial({ color: new THREE.Color(b.color) });
   const mesh = new THREE.Mesh(geo, mat);
@@ -337,7 +371,7 @@ function hashStr(s) {
   return Math.abs(h);
 }
 const winSpots = [];
-for (const b of CITY.buildings) {
+for (const b of buildings) {
   if (b.h < 3) continue;
   const cols = Math.max(1, Math.floor(b.w / 0.9));
   const rows = Math.min(14, Math.max(1, Math.floor((b.h - 1) / 2.2)));
@@ -365,7 +399,7 @@ const winMesh = new THREE.InstancedMesh(
     winMesh.setMatrixAt(i, m4);
   });
 }
-scene.add(winMesh);
+if (winSpots.length) scene.add(winMesh);
 function paintWindows(litColor, unlitColor) {
   const col = new THREE.Color();
   winSpots.forEach((p, i) => winMesh.setColorAt(i, col.set(p.lit ? litColor : unlitColor)));
@@ -374,8 +408,8 @@ function paintWindows(litColor, unlitColor) {
 
 // Rooftop antennas + pulsing red beacons on the tallest 5% of buildings.
 const beacons = [];
-const tallest = [...CITY.buildings].sort((a, b) => b.h - a.h)
-  .slice(0, Math.max(1, Math.floor(CITY.buildings.length * 0.05)));
+const tallest = [...buildings].sort((a, b) => b.h - a.h)
+  .slice(0, Math.max(1, Math.floor(buildings.length * 0.05)));
 tallest.forEach((b, i) => {
   const cx = b.x + b.w / 2, cz = b.z + b.d / 2;
   const antenna = new THREE.Mesh(
@@ -451,8 +485,11 @@ function applyMode(name) {
   paintWindows(m.winLit, m.winUnlit);
   starMat.opacity = m.stars;
   stars.visible = m.stars > 0;
-  document.querySelectorAll('#modeSeg button').forEach(b =>
-    b.classList.toggle('on', b.dataset.mode === name));
+  document.querySelectorAll('#modeSeg button').forEach(b => {
+    const on = b.dataset.mode === name;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
 }
 document.getElementById('modeSeg').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-mode]');
@@ -465,32 +502,41 @@ const btnOrbit = document.getElementById('btnOrbit');
 btnOrbit.addEventListener('click', () => {
   controls.autoRotate = !controls.autoRotate;
   btnOrbit.classList.toggle('on', controls.autoRotate);
+  btnOrbit.setAttribute('aria-pressed', String(controls.autoRotate));
 });
 const btnLabels = document.getElementById('btnLabels');
 btnLabels.addEventListener('click', () => {
   const on = !btnLabels.classList.contains('on');
   btnLabels.classList.toggle('on', on);
+  btnLabels.setAttribute('aria-pressed', String(on));
   labels.forEach(l => { l.visible = on; });
 });
 const btnWindows = document.getElementById('btnWindows');
 btnWindows.addEventListener('click', () => {
   const on = !btnWindows.classList.contains('on');
   btnWindows.classList.toggle('on', on);
+  btnWindows.setAttribute('aria-pressed', String(on));
   winMesh.visible = on;
 });
 
 // --- HUD collapse + About ---------------------------------------------------
-document.getElementById('collapseBtn').addEventListener('click', () => {
-  document.getElementById('hud').classList.toggle('collapsed');
+const collapseBtn = document.getElementById('collapseBtn');
+collapseBtn.addEventListener('click', () => {
+  const hud = document.getElementById('hud');
+  hud.classList.toggle('collapsed');
+  collapseBtn.setAttribute('aria-expanded', String(!hud.classList.contains('collapsed')));
 });
 const aboutBtn = document.getElementById('aboutBtn');
 aboutBtn.addEventListener('click', () => {
   aboutBtn.classList.toggle('open');
   document.getElementById('about').classList.toggle('open');
+  aboutBtn.setAttribute('aria-expanded', String(aboutBtn.classList.contains('open')));
 });
 
 // --- Highlight, pin, detail card ---------------------------------------------
 const card = document.getElementById('card');
+const copyBtn = document.getElementById('copyBtn');
+let copyResetTimer = 0;
 let hovered = null, pinned = null;
 function refreshHighlight() {
   for (const m of meshes) {
@@ -501,6 +547,8 @@ function refreshHighlight() {
 }
 function pin(mesh) {
   pinned = mesh;
+  clearTimeout(copyResetTimer);
+  copyBtn.textContent = 'Copy path';
   if (!mesh) { card.classList.remove('show'); refreshHighlight(); return; }
   const b = mesh.userData.building;
   document.getElementById('cardPath').textContent = b.path;
@@ -509,12 +557,11 @@ function pin(mesh) {
   document.getElementById('cardCommits').textContent = fmt(b.commits);
   document.getElementById('cardLast').textContent = b.last_commit || 'unknown';
   document.getElementById('cardRecency').innerHTML =
-    `<i class="dot" style="--c:${b.color}"></i>${b.recency}`;
+    `<i class="dot" style="--c:${esc(b.color)}"></i>${esc(b.recency)}`;
   card.classList.add('show');
   refreshHighlight();
 }
 document.getElementById('cardClose').addEventListener('click', () => pin(null));
-const copyBtn = document.getElementById('copyBtn');
 copyBtn.addEventListener('click', async () => {
   if (!pinned) return;
   const path = pinned.userData.building.path;
@@ -525,7 +572,8 @@ copyBtn.addEventListener('click', async () => {
     document.execCommand('copy'); ta.remove();
   }
   copyBtn.textContent = 'Copied';
-  setTimeout(() => { copyBtn.textContent = 'Copy path'; }, 1400);
+  clearTimeout(copyResetTimer);
+  copyResetTimer = setTimeout(() => { copyBtn.textContent = 'Copy path'; }, 1400);
 });
 
 // --- Smooth camera flight -----------------------------------------------------
@@ -542,9 +590,15 @@ function flyTo(mesh, dur = 1200) {
   };
   controls.enabled = false;
 }
-renderer.domElement.addEventListener('pointerdown', () => {
-  if (flight) { flight = null; controls.enabled = true; }
-});
+// Cancel on pointerdown in the capture phase, before OrbitControls sees
+// the event: otherwise controls (disabled mid-flight) swallow the first
+// drag after an interrupted flight.
+addEventListener('pointerdown', (e) => {
+  if (flight && e.target === renderer.domElement) { flight = null; controls.enabled = true; }
+}, true);
+addEventListener('wheel', (e) => {
+  if (flight && e.target === renderer.domElement) { flight = null; controls.enabled = true; }
+}, { capture: true, passive: true });
 
 // --- Hover tooltip ------------------------------------------------------------
 const raycaster = new THREE.Raycaster();
@@ -556,26 +610,35 @@ function pickAt(cx, cy) {
   const hit = raycaster.intersectObjects(meshes, false)[0];
   return hit ? hit.object : null;
 }
+// Raycasting on every mousemove janks on big cities; stash the latest
+// pointer position and pick once per animation frame instead.
+let pendingPick = null;
 addEventListener('mousemove', (e) => {
   if (e.target !== renderer.domElement) {
+    pendingPick = null;
     if (hovered) { hovered = null; refreshHighlight(); }
     tooltip.style.display = 'none';
     return;
   }
-  const mesh = pickAt(e.clientX, e.clientY);
+  pendingPick = { x: e.clientX, y: e.clientY };
+});
+function updateHover() {
+  if (!pendingPick) return;
+  const { x, y } = pendingPick;
+  const mesh = pickAt(x, y);
   if (mesh !== hovered) { hovered = mesh; refreshHighlight(); }
   if (mesh) {
     const b = mesh.userData.building;
     tooltip.style.display = 'block';
-    tooltip.style.left = Math.min(e.clientX + 16, innerWidth - 336) + 'px';
-    tooltip.style.top = Math.min(e.clientY + 16, innerHeight - 130) + 'px';
-    tooltip.innerHTML = `<b>${b.path}</b><br><span class="meta">${b.district} district<br>` +
+    tooltip.style.left = Math.max(8, Math.min(x + 16, innerWidth - 336)) + 'px';
+    tooltip.style.top = Math.max(8, Math.min(y + 16, innerHeight - 130)) + 'px';
+    tooltip.innerHTML = `<b>${esc(b.path)}</b><br><span class="meta">${esc(b.district)} district<br>` +
       `${fmt(b.lines)} lines · ${fmt(b.commits)} commits<br>` +
-      `last change: ${b.last_commit || 'unknown'} · ${b.recency}</span>`;
+      `last change: ${esc(b.last_commit || 'unknown')} · ${esc(b.recency)}</span>`;
   } else {
     tooltip.style.display = 'none';
   }
-});
+}
 
 // Click (not drag) pins a building; clicking empty space unpins.
 let downX = 0, downY = 0;
@@ -588,8 +651,12 @@ renderer.domElement.addEventListener('pointerup', (e) => {
 // --- Search with suggestions ---------------------------------------------------
 const searchInput = document.getElementById('search');
 const suggBox = document.getElementById('suggestions');
-let suggItems = [], suggActive = -1;
-function closeSuggestions() { suggBox.classList.remove('open'); suggItems = []; suggActive = -1; }
+let suggItems = [], suggActive = -1, suggNoMatch = false;
+function closeSuggestions() {
+  suggBox.classList.remove('open');
+  suggItems = []; suggActive = -1; suggNoMatch = false;
+  searchInput.setAttribute('aria-expanded', 'false');
+}
 function selectBuilding(b) {
   const mesh = meshByPath.get(b.path);
   if (!mesh) return;
@@ -598,20 +665,29 @@ function selectBuilding(b) {
   closeSuggestions();
 }
 function renderSuggestions() {
-  suggBox.innerHTML = suggItems.map((b, i) =>
-    `<div class="sugg${i === suggActive ? ' active' : ''}" data-i="${i}">` +
-    `<span class="p">${b.path}</span><span class="n">${fmt(b.lines)} lines</span></div>`).join('');
-  suggBox.classList.toggle('open', suggItems.length > 0);
+  if (suggNoMatch) {
+    suggBox.innerHTML = '<div class="sugg empty">No files match that search</div>';
+  } else {
+    suggBox.innerHTML = suggItems.map((b, i) =>
+      `<div class="sugg${i === suggActive ? ' active' : ''}" data-i="${i}" role="option">` +
+      `<span class="p">${esc(b.path)}</span><span class="n">${fmt(b.lines)} lines</span></div>`).join('');
+  }
+  const open = suggItems.length > 0 || suggNoMatch;
+  suggBox.classList.toggle('open', open);
+  searchInput.setAttribute('aria-expanded', String(open));
 }
-searchInput.addEventListener('input', () => {
+function updateSuggestions() {
   const q = searchInput.value.trim().toLowerCase();
   if (!q) { closeSuggestions(); return; }
-  suggItems = CITY.buildings.filter(b => b.path.toLowerCase().includes(q)).slice(0, 8);
+  suggItems = buildings.filter(b => b.path.toLowerCase().includes(q)).slice(0, 8);
   suggActive = suggItems.length ? 0 : -1;
+  suggNoMatch = suggItems.length === 0;
   renderSuggestions();
-});
+}
+searchInput.addEventListener('input', updateSuggestions);
+searchInput.addEventListener('focus', updateSuggestions);
 suggBox.addEventListener('mousedown', (e) => {
-  const el = e.target.closest('.sugg');
+  const el = e.target.closest('.sugg[data-i]');
   if (el) selectBuilding(suggItems[Number(el.dataset.i)]);
 });
 searchInput.addEventListener('keydown', (e) => {
@@ -622,20 +698,28 @@ searchInput.addEventListener('keydown', (e) => {
     suggActive = (suggActive + d + suggItems.length) % suggItems.length;
     renderSuggestions();
   } else if (e.key === 'Enter') {
+    const q = searchInput.value.trim().toLowerCase();
+    if (!q) return;
     const b = suggActive >= 0 ? suggItems[suggActive]
-      : CITY.buildings.find(x => x.path.toLowerCase().includes(searchInput.value.trim().toLowerCase()));
+      : buildings.find(x => x.path.toLowerCase().includes(q));
     if (b) selectBuilding(b);
   } else if (e.key === 'Escape') {
+    // Just close the dropdown; don't let the global Escape handler
+    // also unpin the detail card on the same keypress.
+    e.stopPropagation();
     closeSuggestions();
   }
 });
 searchInput.addEventListener('blur', () => setTimeout(closeSuggestions, 120));
-addEventListener('keydown', (e) => { if (e.key === 'Escape') pin(null); });
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeSuggestions(); pin(null); }
+});
 
 // --- Resize, render loop, loader ----------------------------------------------
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
 });
 let loaderHidden = false;
@@ -650,6 +734,7 @@ renderer.setAnimationLoop(() => {
   } else {
     controls.update();
   }
+  updateHover();
   const t = performance.now() / 1000;
   for (const bc of beacons) {
     const s = 1 + 0.38 * Math.sin(t * 2.6 + bc.phase);
@@ -659,6 +744,7 @@ renderer.setAnimationLoop(() => {
   renderer.render(scene, camera);
   if (!loaderHidden) {
     loaderHidden = true;
+    clearTimeout(window.__loaderWatchdog);
     setTimeout(() => document.getElementById('loader').classList.add('done'), 250);
   }
 });
